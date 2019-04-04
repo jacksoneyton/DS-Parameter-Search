@@ -9,17 +9,22 @@ $lstProjectsArg = "-lprojects"
 $Drives = Invoke-Command -ComputerName $InfoServer -Credential $Credentials -ScriptBlock {(Get-PSDrive -PSProvider FileSystem).Root}
 $dsjobPath = Invoke-Command -ComputerName $InfoServer -Credential $Credentials -ScriptBlock { param ($Drives,$matchfolder) foreach ($drive in $Drives){Get-ChildItem -Path $drive -Filter dsjob.exe -Recurse -ErrorAction SilentlyContinue -Force | Where-Object {$_.FullName -match $matchfolder} | % { $_.FullName}}} -ArgumentList $Drives,$matchfolder
 
-#Sample Remote Execution Command
-invoke-command -ComputerName Computer1 -Credential Get-Credential -ScriptBlock { & 'C:\Program Files\program.exe' -something "myArgValue" } 
-invoke-command -ComputerName Computer1 -ScriptBlock { param ($myarg) & 'C:\Program Files\program.exe' -something $myarg } -ArgumentList "myArgValue"
-start-process -filepath C:\folder\app.exe -argumentlist "/xC:\folder\file.txt"
-
-
 #Get Projects List command str v1
 $dsProjectsLst = invoke-command -ComputerName $InfoServer -Credential $Credentials -ScriptBlock { param ($dsjobPath,$lstProjectsArg) & "$dsjobPath" $lstProjectsArg } -ArgumentList $dsjobPath,$lstProjectsArg -ErrorAction SilentlyContinue
 
-#FAILED# #Get Projects List command str v2
-#$dsProjectsLst = invoke-command -ComputerName $InfoServer -Credential $Credentials -ScriptBlock { param ($dsjobPath) Start-Process -FilePath $dsjobPath -ArgumentList "-lprojects" } -ArgumentList $dsjobPath
-
 #Get Jobs list command str -- $dsProject needs to be set by the WPF frame dropdown list that is populated by $dsProjectsLst
-$dsJobsLst = invoke-command -ComputerName $InfoServer -Credential $Credentials -ScriptBlock { param ($dsjobPath,$dsProject) & "$dsjobPath" -ljobs $dsProjectsLst } -ArgumentList $dsjobPath,$dsProject -ErrorAction SilentlyContinue
+$dsJobsLst = invoke-command -ComputerName $InfoServer -Credential $Credentials -ScriptBlock { param ($dsjobPath,$dsProject) & "$dsjobPath" -ljobs $dsProject } -ArgumentList $dsjobPath,$dsProject -ErrorAction SilentlyContinue
+
+#Get params in given job str
+$dsJobParams = Invoke-Command -ComputerName $InfoServer -Credential $Credentials -ScriptBlock { param ($dsjobPath,$dsProject,$dsJobs) & "$dsjobPath" -lparams $dsProject,$dsJobs } -ArgumentList $dsjobPath,$dsProject,$dsJobs -ErrorAction SilentlyContinue
+
+#Check Jobs for Specific Parameter/Var
+foreach ($dsJob in $dsJobsLst)
+    {
+        $dsJobParams = Invoke-Command -ComputerName $InfoServer -Credential $Credentials -ScriptBlock { param ($dsjobPath,$dsProject,$dsJob) & "$dsjobPath" -lparams $dsProject,$dsJob } -ArgumentList $dsjobPath,$dsProject,$dsJob -ErrorAction SilentlyContinue
+        if ($dsJobParams -contains $JobParamToSearch)
+            {
+                Write-Host $dsJob
+            }
+        else {}
+    }
